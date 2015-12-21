@@ -15,7 +15,7 @@ public class StarGazerData extends NavigationData{
     private static final Pattern DataPattern = Pattern.compile("~\\^I([0-9]+)\\|([\\+\\-][0-9]+\\.?[0-9]+)\\|([\\+\\-][0-9]+\\.?[0-9]+)\\|([\\+\\-][0-9]+\\.?[0-9]+)\\|([0-9]+\\.?[0-9]+)`");
     private static final Pattern DeadZonePattern = Pattern.compile("~\\*DeadZone`");
 
-    public StarGazerData(String rawData) throws Exception {
+    public StarGazerData(String rawData) throws StarGazerException {
         this.time = System.currentTimeMillis();
         this.rawDataString = rawData;
         Matcher m = DataPattern.matcher(rawData);
@@ -28,7 +28,7 @@ public class StarGazerData extends NavigationData{
         } else if (DeadZonePattern.matcher(rawData).find()) {
             this.isDeadZone = true;
         } else{
-            throw new Exception("Invalid data format.");
+            throw new StarGazerException("Invalid data format.");
         }
     }
 
@@ -47,6 +47,4 @@ public class StarGazerData extends NavigationData{
             return String.format("%d %d %.2f %.4f %.4f %.4f", this.time, this.markerId, this.angle, this.x, this.y, this.z);
         }
     }
-
-
 }

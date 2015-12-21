@@ -1,14 +1,5 @@
 package jp.co.mti.marun.stargazerexample;
 
-import android.app.Activity;
-import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.hardware.usb.UsbDevice;
-import android.hardware.usb.UsbDeviceConnection;
-import android.hardware.usb.UsbManager;
 import android.os.Environment;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
@@ -21,10 +12,6 @@ import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.TextView;
 
-import com.hoho.android.usbserial.driver.UsbSerialDriver;
-import com.hoho.android.usbserial.driver.UsbSerialPort;
-import com.hoho.android.usbserial.driver.UsbSerialProber;
-import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -32,50 +19,21 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.BufferedWriter;
 import java.util.Calendar;
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import android.widget.Toast;
 
 
-public class MainActivityFragment extends Fragment implements CompoundButton.OnCheckedChangeListener {
+public class MainActivityFragment extends Fragment implements CompoundButton.OnCheckedChangeListener, StarGazerListener {
 
     private final String TAG = this.getClass().getSimpleName();
 
-    private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
-
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (ACTION_USB_PERMISSION.equals(action)) {
-                synchronized (this) {
-                    UsbDevice device = (UsbDevice)intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-
-                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                        if(device != null){
-                            MainActivityFragment.this.openSerialIOPort(device);
-                        }
-                    }
-                    else {
-                        Log.d(TAG, "permission denied for device " + device);
-                    }
-                }
-            }
-        }
-    };
-    private static final String ACTION_USB_PERMISSION = "jp.co.mti.marun.stargazerexample.USB_PERMISSION";
-
-    private SerialInputOutputManager mSerialIoManager;
+    private StarGazerManager mStargazerManager;
     private TextView mRawDataTextView;
     private TextView mDataTextview;
     private Switch mLoggingSwitch;
     private NavigationDisplayView mNavDisplay;
-    private PendingIntent mPermissionIntent;
     private BufferedWriter mLogWriter = null;
 
-    public MainActivityFragment() {
-    }
+    public MainActivityFragment() {}
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -87,108 +45,14 @@ public class MainActivityFragment extends Fragment implements CompoundButton.OnC
         mNavDisplay = (NavigationDisplayView)view.findViewById(R.id.navigation_display);
         mLoggingSwitch.setOnCheckedChangeListener(this);
 
-        mPermissionIntent = PendingIntent.getBroadcast(this.getActivity(), 0, new Intent(ACTION_USB_PERMISSION), 0);
-        IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
-        this.getActivity().registerReceiver(mUsbReceiver, filter);
-        setupUsbSerialIO();
-        return view;
-
-    }
-
-    private void setupUsbSerialIO() {
-        final UsbManager usbManager = (UsbManager) this.getActivity().getSystemService(this.getActivity().USB_SERVICE);
-
-        List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(usbManager);
-        if (availableDrivers.isEmpty()) {
-            Log.w(TAG, "no available drivers.");
-            return;
-        }
-        UsbSerialDriver driver = availableDrivers.get(0);
-        UsbSerialPort port = driver.getPorts().get(0);
-        UsbDevice device = port.getDriver().getDevice();
-        if (usbManager.hasPermission(device)) {
-            openSerialIOPort(device);
-        } else {
-            usbManager.requestPermission(port.getDriver().getDevice(), mPermissionIntent);
-        }
-    }
-
-    private void openSerialIOPort(UsbDevice device) {
-
-        UsbSerialDriver driver = UsbSerialProber.getDefaultProber().probeDevice(device);
-        UsbSerialPort port = driver.getPorts().get(0);
-
-        Activity activity = MainActivityFragment.this.getActivity();
-        final UsbManager usbManager = (UsbManager)activity.getSystemService(activity.USB_SERVICE);
-        UsbDeviceConnection connection = usbManager.openDevice(port.getDriver().getDevice());
-        if (connection == null) {
-            Log.d(TAG, "Opening device failed");
-            return;
-        }
-
+        mStargazerManager = new StarGazerManager();
         try {
-            port.open(connection);
-            port.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
-        } catch (IOException e) {
-            Log.e(TAG, "Error setting up device: " + e.getMessage(), e);
-            Log.d(TAG, "Error opening device: " + e.getMessage());
-            try {
-                port.close();
-            } catch (IOException e2) {
-                e.printStackTrace();
-            }
-            return;
+            mStargazerManager.connect(this.getActivity());
+        } catch (StarGazerException e) {
+            e.printStackTrace();
         }
-        Log.d(TAG, "Serial device: " + port.getClass().getSimpleName());
-
-        mSerialIoManager = new SerialInputOutputManager(port, new SerialInputOutputManager.Listener() {
-            private StringBuffer buffer = new StringBuffer();
-            private final Pattern OutputPattern = Pattern.compile("~(.+?)`");
-            @Override
-            public void onRunError(Exception e) {
-                Log.d(TAG, "Runner stopped.");
-            }
-            @Override
-            public void onNewData(final byte[] data) {
-                buffer.append(new String(data));
-                String str = buffer.toString();
-                Matcher m = OutputPattern.matcher(str);
-                int lastMatchIndex = 0;
-                while (m.find()) {
-                    final String line = m.group();
-                    try {
-                        final StarGazerData sgdata = new StarGazerData(line);
-                        try {
-                            if (mLogWriter != null) {
-                                mLogWriter.write(sgdata.toLogString());
-                                mLogWriter.newLine();
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                        if (sgdata.isDeadZone) {
-
-                        } else {
-                            mNavDisplay.setCurrentPoint(sgdata);
-                        }
-
-                        ((Activity) MainActivityFragment.this.getActivity()).runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                mRawDataTextView.setText(sgdata.rawDataString);
-                                mDataTextview.setText(sgdata.toXYString());
-                            }
-                        });
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                    lastMatchIndex = m.end();
-                }
-                buffer.delete(0, lastMatchIndex);
-            }
-        });
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        executor.submit(mSerialIoManager);
+        mStargazerManager.setListener(this);
+        return view;
     }
 
     @Override
@@ -231,5 +95,32 @@ public class MainActivityFragment extends Fragment implements CompoundButton.OnC
         File file = new File(filePath);
         file.getParentFile().mkdir();
         return file;
+    }
+
+    @Override
+    public void onNewData(final StarGazerData data) {
+        try {
+            if (mLogWriter != null) {
+                mLogWriter.write(data.toLogString());
+                mLogWriter.newLine();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        if (!data.isDeadZone) {
+            mNavDisplay.setCurrentPoint(data);
+        }
+        this.getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mRawDataTextView.setText(data.rawDataString);
+                mDataTextview.setText(data.toXYString());
+            }
+        });
+    }
+
+    @Override
+    public void onError(StarGazerException e) {
+        Log.e(TAG, e.getMessage());
     }
 }
