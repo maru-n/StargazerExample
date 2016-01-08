@@ -45,19 +45,22 @@ public class StarGazerManager implements SerialInputOutputManager.Listener {
             if (ACTION_USB_PERMISSION.equals(action)) {
                 synchronized (this) {
                     UsbDevice device = (UsbDevice)intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-
-                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                        if(device != null){
-                            UsbSerialDriver driver = UsbSerialProber.getDefaultProber().probeDevice(device);
-
-                            UsbSerialPort port = driver.getPorts().get(0);
+                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false) && device != null){
+                        UsbSerialDriver driver = UsbSerialProber.getDefaultProber().probeDevice(device);
+                        UsbSerialPort port = driver.getPorts().get(0);
+                        try {
                             StarGazerManager.this.openSerialIOPort(port);
+                        } catch (StarGazerException e) {
+                            Log.w(TAG, e.getMessage());
                         }
                     }
                     else {
-                        Log.w(TAG, "permission denied for device " + device);
+                        StarGazerManager.this.callOnErrorListener(new StarGazerException("permission denied for device " + device));
                     }
                 }
+            } else if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(action)) {
+                StarGazerManager.this.connect();
+            } else if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
             }
         }
     };
@@ -66,20 +69,36 @@ public class StarGazerManager implements SerialInputOutputManager.Listener {
     public StarGazerManager(Context context) {
         mUsbManager = (UsbManager) context.getSystemService(context.USB_SERVICE);
         mPermissionIntent = PendingIntent.getBroadcast(context, 0, new Intent(ACTION_USB_PERMISSION), 0);
-        //mPermissionIntent = PendingIntent.getActivity(context, 0, new Intent(ACTION_USB_PERMISSION), 0);
-        //mPermissionIntent = PendingIntent.getService(context, 0, new Intent(ACTION_USB_PERMISSION), 0);
-        IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
-
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ACTION_USB_PERMISSION);
+        filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
+        filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
         context.registerReceiver(mUsbPermissionReceiver, filter);
     }
 
-    public void connect() throws StarGazerException {
-        UsbSerialPort port = findDefaultPort();
+    public void connect() {
+        UsbSerialPort port = null;
+        try {
+            port = findDefaultPort();
+        } catch (StarGazerException e) {
+            this.callOnErrorListener(e);
+            return;
+        }
         UsbDevice device = port.getDriver().getDevice();
         if (mUsbManager.hasPermission(device)) {
-            openSerialIOPort(port);
+            try {
+                openSerialIOPort(port);
+            } catch (StarGazerException e) {
+                this.callOnErrorListener(e);
+            }
         } else {
             mUsbManager.requestPermission(device, mPermissionIntent);
+        }
+    }
+
+    public void disconnect() {
+        if (mSerialIoManager != null) {
+            mSerialIoManager.stop();
         }
     }
 
@@ -95,7 +114,7 @@ public class StarGazerManager implements SerialInputOutputManager.Listener {
         List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(mUsbManager);
         if (availableDrivers.isEmpty()) {
             StarGazerException e = new StarGazerException("no available drivers.");
-            Log.w(TAG, e.getMessage());
+            Log.d(TAG, e.getMessage());
             throw e;
         }
 
@@ -105,25 +124,23 @@ public class StarGazerManager implements SerialInputOutputManager.Listener {
         return port;
     }
 
-    private void openSerialIOPort(UsbSerialPort port) {
+    private void openSerialIOPort(UsbSerialPort port) throws StarGazerException {
         UsbDeviceConnection connection = mUsbManager.openDevice(port.getDriver().getDevice());
         if (connection == null) {
-            Log.d(TAG, "Opening device failed");
-            return;
+            StarGazerException e = new StarGazerException("Opening device failed.");
+            throw e;
         }
 
         try {
             port.open(connection);
             port.setParameters(BAUD_RATE, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
         } catch (IOException e) {
-            Log.e(TAG, "Error setting up device: " + e.getMessage(), e);
-            Log.d(TAG, "Error opening device: " + e.getMessage());
             try {
                 port.close();
             } catch (IOException e2) {
-                e.printStackTrace();
+                throw new StarGazerException(e2);
             }
-            return;
+            throw new StarGazerException(e);
         }
         Log.d(TAG, "Serial device: " + port.getClass().getSimpleName());
 
@@ -135,13 +152,13 @@ public class StarGazerManager implements SerialInputOutputManager.Listener {
 
     private void callOnNewDataListener(StarGazerData d) {
         if (mListener != null) {
-            mListener.onNewData(d);
+            mListener.onNewData(this, d);
         }
     }
 
     private void callOnErrorListener(StarGazerException e) {
         if (mListener != null) {
-            mListener.onError(e);
+            mListener.onError(this, e);
         }
     }
 
@@ -155,7 +172,6 @@ public class StarGazerManager implements SerialInputOutputManager.Listener {
             final String line = m.group();
             try {
                 final StarGazerData data = new StarGazerData(line);
-                Log.d(TAG, data.rawDataString);
                 callOnNewDataListener(data);
             } catch (StarGazerException e) {
                 callOnErrorListener(e);

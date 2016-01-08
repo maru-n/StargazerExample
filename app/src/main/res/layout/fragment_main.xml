@@ -45,7 +45,8 @@
         android:layout_below="@+id/raw_data_text"
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"
-        android:layout_above="@+id/logging_switch"
         android:layout_alignRight="@+id/logging_switch"
-        android:layout_alignEnd="@+id/logging_switch" />
+        android:layout_alignEnd="@+id/logging_switch"
+        android:layout_above="@+id/logging_switch" />
+
 </RelativeLayout>

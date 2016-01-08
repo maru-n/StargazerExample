@@ -45,15 +45,12 @@ public class MainActivityFragment extends Fragment implements CompoundButton.OnC
         mDataTextview = (TextView)view.findViewById(R.id.data_text);
         mRawDataTextView = (TextView)view.findViewById(R.id.raw_data_text);
         mLoggingSwitch = (Switch)view.findViewById(R.id.logging_switch);
+        mLoggingSwitch.setOnCheckedChangeListener(this);
         mNavDisplay = (NavigationDisplayView)view.findViewById(R.id.navigation_display);
 
         mStargazerManager = new StarGazerManager(this.getActivity());
         mStargazerManager.setListener(this);
-        try {
-            mStargazerManager.connect();
-        } catch (StarGazerException e) {
-            e.printStackTrace();
-        }
+        mStargazerManager.connect();
         return view;
     }
 
@@ -89,7 +86,7 @@ public class MainActivityFragment extends Fragment implements CompoundButton.OnC
     }
 
     @Override
-    public void onNewData(final StarGazerData data) {
+    public void onNewData(StarGazerManager sm, final StarGazerData data) {
         try {
             if (mLogWriter != null) {
                 mLogWriter.write(data.toLogString());
@@ -111,7 +108,7 @@ public class MainActivityFragment extends Fragment implements CompoundButton.OnC
     }
 
     @Override
-    public void onError(StarGazerException e) {
+    public void onError(StarGazerManager sm, StarGazerException e) {
         Log.e(TAG, e.getMessage());
     }
 

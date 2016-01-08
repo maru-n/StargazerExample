@@ -7,7 +7,7 @@ public class StarGazerException extends Exception {
     public StarGazerException(String s) {
         super(s);
     }
-
+    public StarGazerException(Exception e) { super(e); }
     public StarGazerException(String s, Exception e) {
         super(s, e);
     }
