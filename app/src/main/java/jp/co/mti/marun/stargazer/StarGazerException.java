@@ -1,4 +1,4 @@
-package jp.co.mti.marun.stargazerexample;
+package jp.co.mti.marun.stargazer;
 
 /**
  * Created by maruyama_n on 2015/12/21.

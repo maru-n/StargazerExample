@@ -1,4 +1,4 @@
-package jp.co.mti.marun.stargazerexample;
+package jp.co.mti.marun.stargazer;
 
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
@@ -39,7 +39,6 @@ public class StarGazerManager implements SerialInputOutputManager.Listener {
     private StarGazerListener mListener = null;
     private StringBuffer buffer = new StringBuffer();
 
-
     private final BroadcastReceiver mUsbPermissionReceiver = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
@@ -50,6 +49,7 @@ public class StarGazerManager implements SerialInputOutputManager.Listener {
                     if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
                         if(device != null){
                             UsbSerialDriver driver = UsbSerialProber.getDefaultProber().probeDevice(device);
+
                             UsbSerialPort port = driver.getPorts().get(0);
                             StarGazerManager.this.openSerialIOPort(port);
                         }
@@ -63,13 +63,36 @@ public class StarGazerManager implements SerialInputOutputManager.Listener {
     };
 
 
-    public StarGazerManager() {
+    public StarGazerManager(Context context) {
+        mUsbManager = (UsbManager) context.getSystemService(context.USB_SERVICE);
+        mPermissionIntent = PendingIntent.getBroadcast(context, 0, new Intent(ACTION_USB_PERMISSION), 0);
+        //mPermissionIntent = PendingIntent.getActivity(context, 0, new Intent(ACTION_USB_PERMISSION), 0);
+        //mPermissionIntent = PendingIntent.getService(context, 0, new Intent(ACTION_USB_PERMISSION), 0);
+        IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
+
+        context.registerReceiver(mUsbPermissionReceiver, filter);
     }
 
-    public void connect(Context context) throws StarGazerException {
-        mUsbManager = (UsbManager) context.getSystemService(context.USB_SERVICE);
+    public void connect() throws StarGazerException {
+        UsbSerialPort port = findDefaultPort();
+        UsbDevice device = port.getDriver().getDevice();
+        if (mUsbManager.hasPermission(device)) {
+            openSerialIOPort(port);
+        } else {
+            mUsbManager.requestPermission(device, mPermissionIntent);
+        }
+    }
 
-        List<UsbSerialDriver> availableDrivers = findAllDrivers();
+    public void setListener(StarGazerListener listener) {
+        mListener = listener;
+    }
+
+    public void removeListener() {
+        mListener = null;
+    }
+
+    private UsbSerialPort findDefaultPort() throws StarGazerException {
+        List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(mUsbManager);
         if (availableDrivers.isEmpty()) {
             StarGazerException e = new StarGazerException("no available drivers.");
             Log.w(TAG, e.getMessage());
@@ -79,27 +102,7 @@ public class StarGazerManager implements SerialInputOutputManager.Listener {
         UsbSerialDriver driver = availableDrivers.get(0);
         UsbSerialPort port = driver.getPorts().get(0);
 
-        if (mUsbManager.hasPermission(port.getDriver().getDevice())) {
-            openSerialIOPort(port);
-        } else {
-            mPermissionIntent = PendingIntent.getBroadcast(context, 0, new Intent(ACTION_USB_PERMISSION), 0);
-            IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
-            context.registerReceiver(mUsbPermissionReceiver, filter);
-            mUsbManager.requestPermission(port.getDriver().getDevice(), mPermissionIntent);
-        }
-    }
-
-    private List<UsbSerialDriver> findAllDrivers() {
-        List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(mUsbManager);
-        return availableDrivers;
-    }
-
-    public void setListener(StarGazerListener listener) {
-        mListener = listener;
-    }
-
-    public void removeListener() {
-        mListener = null;
+        return port;
     }
 
     private void openSerialIOPort(UsbSerialPort port) {

@@ -1,4 +1,4 @@
-package jp.co.mti.marun.stargazerexample;
+package jp.co.mti.marun.stargazer;
 
 public class NavigationDataDebug extends NavigationData {
 

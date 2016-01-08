@@ -5,11 +5,15 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
 import java.util.Iterator;
 import java.util.LinkedList;
+
+import jp.co.mti.marun.stargazer.NavigationData;
+import jp.co.mti.marun.stargazer.NavigationDataDebug;
 
 /**
  * Created by maruyama_n on 2015/12/18.
@@ -81,7 +85,7 @@ public class NavigationDisplayView extends SurfaceView implements SurfaceHolder.
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        if(mLooper != null ){
+        if(mLooper != null){
             mLooper.start();
         }
     }

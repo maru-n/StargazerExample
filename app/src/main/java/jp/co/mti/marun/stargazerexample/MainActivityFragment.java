@@ -8,6 +8,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.TextView;
@@ -20,6 +21,8 @@ import java.io.OutputStreamWriter;
 import java.io.BufferedWriter;
 import java.util.Calendar;
 import android.widget.Toast;
+
+import jp.co.mti.marun.stargazer.*;
 
 
 public class MainActivityFragment extends Fragment implements CompoundButton.OnCheckedChangeListener, StarGazerListener {
@@ -43,15 +46,14 @@ public class MainActivityFragment extends Fragment implements CompoundButton.OnC
         mRawDataTextView = (TextView)view.findViewById(R.id.raw_data_text);
         mLoggingSwitch = (Switch)view.findViewById(R.id.logging_switch);
         mNavDisplay = (NavigationDisplayView)view.findViewById(R.id.navigation_display);
-        mLoggingSwitch.setOnCheckedChangeListener(this);
 
-        mStargazerManager = new StarGazerManager();
+        mStargazerManager = new StarGazerManager(this.getActivity());
+        mStargazerManager.setListener(this);
         try {
-            mStargazerManager.connect(this.getActivity());
+            mStargazerManager.connect();
         } catch (StarGazerException e) {
             e.printStackTrace();
         }
-        mStargazerManager.setListener(this);
         return view;
     }
 
@@ -86,17 +88,6 @@ public class MainActivityFragment extends Fragment implements CompoundButton.OnC
         Toast.makeText(this.getActivity(), toastMessage, Toast.LENGTH_LONG).show();
     }
 
-    private File createNewLogFile() {
-        String filename = "/stargazer/";
-        filename += DateFormat.format("yyyyMMdd-kkmmss", Calendar.getInstance());
-        filename += ".log";
-
-        String filePath = Environment.getExternalStorageDirectory() + filename;
-        File file = new File(filePath);
-        file.getParentFile().mkdir();
-        return file;
-    }
-
     @Override
     public void onNewData(final StarGazerData data) {
         try {
@@ -122,5 +113,16 @@ public class MainActivityFragment extends Fragment implements CompoundButton.OnC
     @Override
     public void onError(StarGazerException e) {
         Log.e(TAG, e.getMessage());
+    }
+
+    private File createNewLogFile() {
+        String filename = "/stargazer/";
+        filename += DateFormat.format("yyyyMMdd-kkmmss", Calendar.getInstance());
+        filename += ".log";
+
+        String filePath = Environment.getExternalStorageDirectory() + filename;
+        File file = new File(filePath);
+        file.getParentFile().mkdir();
+        return file;
     }
 }

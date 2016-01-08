@@ -1,4 +1,4 @@
-package jp.co.mti.marun.stargazerexample;
+package jp.co.mti.marun.stargazer;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -6,7 +6,7 @@ import java.util.regex.Pattern;
 /**
  * Created by maruyama_n on 2015/12/18.
  */
-public class StarGazerData extends NavigationData{
+public class StarGazerData extends NavigationData {
     public final String rawDataString;
 
     public int markerId;
