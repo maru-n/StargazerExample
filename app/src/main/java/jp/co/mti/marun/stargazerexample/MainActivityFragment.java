@@ -22,8 +22,7 @@ import java.io.BufferedWriter;
 import java.util.Calendar;
 import android.widget.Toast;
 
-import jp.co.mti.marun.stargazer.*;
-
+import jp.co.mti.marun.android.stargazer.*;
 
 public class MainActivityFragment extends Fragment implements CompoundButton.OnCheckedChangeListener, StarGazerListener {
 

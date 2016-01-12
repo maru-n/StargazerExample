@@ -5,15 +5,13 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
 import java.util.Iterator;
 import java.util.LinkedList;
-
-import jp.co.mti.marun.stargazer.NavigationData;
-import jp.co.mti.marun.stargazer.NavigationDataDebug;
+import jp.co.mti.marun.android.stargazer.NavigationData;
+import jp.co.mti.marun.android.stargazer.NavigationDataDebug;
 
 /**
  * Created by maruyama_n on 2015/12/18.
