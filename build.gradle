@@ -15,7 +15,6 @@ buildscript {
 allprojects {
     repositories {
         jcenter()
-        mavenCentral()
         maven {url "https://oss.sonatype.org/content/repositories/snapshots" }
         maven {url "https://raw.githubusercontent.com/maru-n/StargazerForAndroid/master/repository" }
     }
